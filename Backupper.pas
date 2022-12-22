@@ -27,6 +27,11 @@ type
     function GetLastModifiedFolderName(AFolder: String): string;
     function LeerArchivox(const FileName: TFileName): String;
     function FileIsEmpty(const FileName: String): Boolean;
+    function GenerateRandomString(const ALength: Integer;
+    const ACharSequence
+    : String =
+    'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'): String;
+    procedure Remove(const Dir: string);
     procedure btnDoClick(Sender: TObject);
     procedure tmrAutoBackupTimer(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -34,6 +39,7 @@ type
     procedure MakeAStringlistAndSaveThat(CheckForFileOnly: Boolean);
     procedure edtAutosaveChange(Sender: TObject);
     procedure btnTimerBoolClick(Sender: TObject);
+    procedure RenameFolder(FolderOld, FolderNew: string);
     procedure tmrRefreshTimer(Sender: TObject);
 
   private
@@ -67,9 +73,10 @@ begin
   else if (NOT tmrAutoBackup.Enabled) then
     btnTimerBool.Caption := 'Enable autosaving';
 
-   tmrRefresh.Enabled := tmrAutoBackup.Enabled;
-   if tmrRefresh.Enabled then CountDown := TimerInterval;
-   
+  tmrRefresh.Enabled := tmrAutoBackup.Enabled;
+  if tmrRefresh.Enabled then
+    CountDown := TimerInterval;
+
 end;
 
 function TSaveBackupper.CopyDir(const fromDir, toDir: string): Boolean;
@@ -91,8 +98,8 @@ procedure TSaveBackupper.edtAutosaveChange(Sender: TObject);
 begin
 
   tmrAutoBackup.Enabled := False;
-  tmrRefresh.Enabled    := False;
-  btnTimerBool.Enabled  := False;
+  tmrRefresh.Enabled := False;
+  btnTimerBool.Enabled := False;
 
   if (edtAutoSave.Text = '') OR (StrToInt(edtAutoSave.Text) <= 9) then
   begin
@@ -106,15 +113,16 @@ begin
   if TimerInterval > 9 then
     tmrAutoBackup.Interval := TimerInterval * 1000;
 
-  if btnTimerBool.Caption = 'ERROR' then btnTimerBool.Caption := 'Enable autosaving';
+  if btnTimerBool.Caption = 'ERROR' then
+    btnTimerBool.Caption := 'Enable autosaving';
 
-  if not (btnTimerBool.Caption = 'Enable autosaving') then
+  if not(btnTimerBool.Caption = 'Enable autosaving') then
   begin
-    tmrRefresh.Enabled    := True;
+    tmrRefresh.Enabled := True;
     tmrAutoBackup.Enabled := True;
   end;
 
-  btnTimerBool.Enabled  := True;
+  btnTimerBool.Enabled := True;
 end;
 
 function TSaveBackupper.GetUserName: String;
@@ -139,14 +147,30 @@ begin
   Autosaving := False;
   User := Self.GetUserName;
 
-  DiffFolder := GetLastModifiedFolderName('C:\Users\' + User + '\Zomboid\Saves\');
-  LastModifiedSave := GetLastModifiedFolderName('C:\Users\' + User + '\Zomboid\Saves\' + DiffFolder + '\');
+  DiffFolder := GetLastModifiedFolderName('C:\Users\' + User +
+    '\Zomboid\Saves\');
+  LastModifiedSave := GetLastModifiedFolderName('C:\Users\' + User +
+    '\Zomboid\Saves\' + DiffFolder + '\');
 
   BackupFolder := 'C:\Users\' + User + '\Zomboid\BackupSaves\';
   MakeAStringlistAndSaveThat(True);
   GeneratedBackupFolder := LeerArchivox(fn);
-  if NOT (GeneratedBackupFolder = '') then GeneratedBackupFolder := StringReplace(GeneratedBackupFolder,#$D#$A,'',[rfReplaceAll]);
+  if NOT(GeneratedBackupFolder = '') then
+    GeneratedBackupFolder := StringReplace(GeneratedBackupFolder, #$D#$A, '',
+      [rfReplaceAll]);
 
+end;
+
+procedure TSaveBackupper.RenameFolder(FolderOld, FolderNew: string);
+var
+  ShellInfo: TSHFileOpStruct;
+begin
+  ShellInfo.Wnd := 0;
+  ShellInfo.wFunc := FO_RENAME;
+  ShellInfo.pFrom := PChar(FolderOld);
+  ShellInfo.pTo := PChar(FolderNew);
+
+  ShFileOperation(ShellInfo);
 end;
 
 procedure TSaveBackupper.FormShow(Sender: TObject);
@@ -154,7 +178,8 @@ begin
 
   if (GeneratedBackupFolder = '') then
   begin
-    lblBackup.Caption := 'Autosaving' + CrLf + 'you cannot replace your save, yet.';
+    lblBackup.Caption := 'Autosaving' + CrLf +
+      'you cannot replace your save, yet.';
     lblBackup.left := 46;
     lblBackup.Top := 53;
     btnDo.Enabled := False;
@@ -198,18 +223,18 @@ begin
   btnDo.Visible := True;
 
   DiffFolder := GetLastModifiedFolderName('C:\Users\' + User +
-  '\Zomboid\Saves\');
+    '\Zomboid\Saves\');
 
   LastModifiedSave := GetLastModifiedFolderName('C:\Users\' + User +
-  '\Zomboid\Saves\' + DiffFolder + '\');
+    '\Zomboid\Saves\' + DiffFolder + '\');
 
-  SaveFolder := 'C:\Users\' + User + '\Zomboid\Saves\' + DiffFolder + '\' + LastModifiedSave;
+  SaveFolder := 'C:\Users\' + User + '\Zomboid\Saves\' + DiffFolder + '\' +
+    LastModifiedSave;
 
   DateTimeToString(GeneratedBackupFolder, 'dd-mm-yy_hh-nn-ss', Now);
-//  GeneratedBackupFolder := GeneratedBackupFolder + '-' + GenerateRandomString(4,'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890');
+  GeneratedBackupFolder := GeneratedBackupFolder + '-LASTSAVE-' + LastModifiedSave;
   CreateDir(BackupFolder + GeneratedBackupFolder);
   CopyDir(SaveFolder, BackupFolder + GeneratedBackupFolder);
-
 
   MakeAStringlistAndSaveThat(False);
 
@@ -245,11 +270,13 @@ begin
   try
 
     if NOT FileExists(fn) then
-    FileCreate(fn);
+      FileCreate(fn);
 
-    if CheckForFileOnly then exit;
+    if CheckForFileOnly then
+      exit;
 
-    if (GeneratedBackupFolder = '') then exit;
+    if (GeneratedBackupFolder = '') then
+      exit;
 
     MyText.Add(GeneratedBackupFolder);
     MyText.SaveToFile(GetCurrentDir + '\' + fn);
@@ -287,20 +314,58 @@ end;
 procedure TSaveBackupper.btnDoClick(Sender: TObject);
 
 begin
+  tmrAutoBackup.Enabled := False;
 
-  if (NOT FileExists(fn)) then FileCreate(fn);
+  if (NOT FileExists(fn)) then
+    FileCreate(fn);
 
-  if (GeneratedBackupFolder = '') AND (FileExists(fn)) AND (FileIsEmpty(fn)) then exit
-  else if (GeneratedBackupFolder = '') AND (FileExists(fn)) AND (NOT FileIsEmpty(fn)) then GeneratedBackupFolder := LeerArchivox(fn);
+  if (GeneratedBackupFolder = '') AND (FileExists(fn)) AND (FileIsEmpty(fn))
+  then
+    exit
+  else if (GeneratedBackupFolder = '') AND (FileExists(fn)) AND
+    (NOT FileIsEmpty(fn)) then
+    GeneratedBackupFolder := LeerArchivox(fn);
+
+    CopyDir('C:\Users\' + User + '\Zomboid\Saves\' +
+      DiffFolder + '\' + LastModifiedSave , 'C:\Users\' + User + '\Zomboid\BackupSaves\' +
+      LastModifiedSave + '-BackupUsed-' + GenerateRandomString(8, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'));
+
+      Remove('C:\Users\' + User + '\Zomboid\Saves\' +
+      DiffFolder + '\' + LastModifiedSave);
+
 
   if NOT(GeneratedBackupFolder = '') then
   begin
     tmrAutoBackup.Enabled := False;
-    CopyDir('C:\Users\' + User + '\Documents\backup\' + GeneratedBackupFolder +
-      '\' + LastModifiedSave + '\', 'C:\Users\' + User +
-      '\Zomboid\Saves\' + DiffFolder + '\');
+    CopyDir('C:\Users\' + User + '\Zomboid\BackupSaves\' + GeneratedBackupFolder
+      + '\' + LastModifiedSave + '\', 'C:\Users\' + User + '\Zomboid\Saves\' +
+      DiffFolder + '\');
     tmrAutoBackup.Enabled := True;
   end;
+end;
+
+procedure TSaveBackupper.Remove(const Dir: string);
+var
+  Result: TSearchRec;
+begin
+  if FindFirst(Dir + '\*', faAnyFile, Result) = 0 then
+  begin
+    Try
+      repeat
+        if (Result.Attr and faDirectory) = faDirectory then
+        begin
+          if (Result.Name <> '.') and (Result.Name <> '..') then
+            Remove(Dir + '\' + Result.Name)
+        end
+        else if not DeleteFile(Dir + '\' + Result.Name) then
+          RaiseLastOSError;
+      until FindNext(Result) <> 0;
+    Finally
+      FindClose(Result);
+    End;
+  end;
+  if not RemoveDir(Dir) then
+    RaiseLastOSError;
 end;
 
 function TSaveBackupper.GetLastModifiedFolderName(AFolder: String): string;
@@ -334,25 +399,24 @@ begin
     Result := '-1';
   end;
 end;
- (*
+
+
 function TSaveBackupper.GenerateRandomString(const ALength: Integer;
-  const ACharSequence
+const ACharSequence
   : String =
   'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'): String;
 var
   Ch, SequenceLength: Integer;
 
-begin
+  begin
   SequenceLength := Length(ACharSequence);
   SetLength(Result, ALength);
   Randomize;
 
   for Ch := Low(Result) to High(Result) do
-    Result[Ch] := ACharSequence.Chars[Random(SequenceLength)];
-end;
+  Result[Ch] := ACharSequence.Chars[Random(SequenceLength)];
+  end;
 
 
-            NOT USING ANYMORE - MAY COME HANDY LATER ON
 
-          *)
 end.
